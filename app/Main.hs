@@ -7,7 +7,7 @@ import Interpreter (runStateInterpreter)
 
 main :: IO ()
 main = do
-  let initMem = HashMap.fromList . zip [0..] . map (Val . read) . words $ "9 32768 32769 4 19 32768"
+  let initMem = HashMap.fromList . zip [0..] . map (Val . read) . words $ "9 32768 32769 4 19 32768 0"
       st = emptyState { memory = initMem }
       out = runStateInterpreter st ""
   print out
