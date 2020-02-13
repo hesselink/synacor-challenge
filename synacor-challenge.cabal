@@ -1,0 +1,50 @@
+name:           synacor-challenge
+version:        0.1.0.0
+description:    Synacor Challenge
+homepage:       https://github.com/hesselink/synacor-challenge
+bug-reports:    https://github.com/hesselink/synacor-challenge/issues
+author:         Erik Hesselin
+maintainer:     hesselink@gmail.com
+copyright:      2020 Erik Hesselin
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version: 1.12
+
+source-repository head
+  type: git
+  location: https://github.com/hesselink/synacor-challenge
+
+library
+  exposed-modules:
+      Interpreter,
+      State,
+      OpCode
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <4.13,
+      mtl,
+      unordered-containers
+  default-language: Haskell2010
+
+executable synacor-challenge-exe
+  main-is: Main.hs
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <4.13
+    , synacor-challenge
+  default-language: Haskell2010
+
+test-suite synacor-challenge-test
+  type: exitcode-stdio-1.0
+  main-is: Tests.hs
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <4.13
+    , synacor-challenge
+  default-language: Haskell2010
