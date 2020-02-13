@@ -36,6 +36,7 @@ executable synacor-challenge-exe
   build-depends:
       base >=4.7 && <4.13
     , synacor-challenge
+    , unordered-containers
   default-language: Haskell2010
 
 test-suite synacor-challenge-test
@@ -47,4 +48,6 @@ test-suite synacor-challenge-test
   build-depends:
       base >=4.7 && <4.13
     , synacor-challenge
+    , tasty
+    , tasty-quickcheck
   default-language: Haskell2010
