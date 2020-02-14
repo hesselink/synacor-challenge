@@ -79,23 +79,22 @@ testJump x y (R target) source = target /= source ==>
                       ] $ emptyState
   in runAndCheckEquals target y st
 
-testJumpIfTrue :: Bool -> Val -> Val -> Reg -> Addr -> Property
-testJumpIfTrue b x y (R target) source = target /= source ==>
-  let st = addProgram [ Jt (Mem $ if b then 1 else 0) (Mem 7)
-                      , Set target (Mem (unVal x))
-                      , Halt
-                      , Set target (Mem (unVal y))
-                      ] $ emptyState
-  in runAndCheckEquals target (if b then y else x) st
+testJumpIfTrue :: Bool -> Mem -> Mem -> Reg -> Property
+testJumpIfTrue = testJumpIf Jt True
 
-testJumpIfFalse :: Bool -> Val -> Val -> Reg -> Addr -> Property
-testJumpIfFalse b x y (R target) source = target /= source ==>
-  let st = addProgram [ Jf (Mem $ if b then 1 else 0) (Mem 7)
-                      , Set target (Mem (unVal x))
+testJumpIfFalse :: Bool -> Mem -> Mem -> Reg -> Property
+testJumpIfFalse = testJumpIf Jf False
+
+testJumpIf :: (Addr -> Addr -> Op) -> Bool -> Bool -> Mem -> Mem -> Reg -> Property
+testJumpIf jumpOp jumpIf b (M x) (M y) (R target) =
+  let st = addProgram [ jumpOp (Mem $ if b then 1 else 0) (Mem 7)
+                      , Set target x
                       , Halt
-                      , Set target (Mem (unVal y))
+                      , Set target y
                       ] $ emptyState
-  in runAndCheckEquals target (if b then x else y) st
+      Mem v1 = x
+      Mem v2 = y
+  in runAndCheckEquals target (Val $ if jumpIf /= b then v1 else v2) st
 
 testAddition :: Val -> Val -> Addr -> Addr -> Addr -> Property
 testAddition x y target source1 source2 = target /= source1 && target /= source2 && source1 /= source2 ==>
@@ -149,13 +148,19 @@ instance Arbitrary Val where
   arbitrary = Val <$> choose (0, 32775)
 
 instance Arbitrary Addr where
-  arbitrary = oneof [ Mem <$> choose (100, 32767), getReg <$> arbitrary ] -- Start at mem 100 so we can fit the program before it
+  arbitrary = oneof [ getMem <$> arbitrary, getReg <$> arbitrary ]
 
 newtype Reg = R { getReg :: Addr }
   deriving (Show, Eq)
 
+newtype Mem = M { getMem :: Addr }
+  deriving (Show, Eq)
+
 instance Arbitrary Reg where
   arbitrary = R . Reg <$> choose (0, 7)
+
+instance Arbitrary Mem where
+  arbitrary = M . Mem <$> choose (100, 32767) -- Start at mem 100 so we can fit the program before it
 
 insertProgram :: Program -> HashMap Int Val -> HashMap Int Val
 insertProgram p m

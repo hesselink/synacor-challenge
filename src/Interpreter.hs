@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Interpreter where
 
-import Control.Monad.State (MonadState (), State, get, gets, put, modify, execState)
+import Control.Monad.State.Strict (MonadState (), State, get, gets, put, modify, execState)
 import Control.Monad (when)
 import Data.Maybe (fromMaybe)
 import Data.Char (chr)
@@ -27,7 +27,6 @@ data IOState = IOState
 instance MonadState IState StateInterpreter where
   get = StateInterpreter (gets state)
   put x = StateInterpreter (modify $ \st -> st { state = x })
-
 
 class MonadState IState m => Interpreter m where
   writeChar :: Char -> m ()
