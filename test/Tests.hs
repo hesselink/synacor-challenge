@@ -108,7 +108,7 @@ testAddition x y target source1 source2 = target /= source1 && target /= source2
       v2 = case source2 of
         Mem l -> Val l
         Reg _ -> y
-  in runAndCheckEquals target (v1 + v2) st
+  in runAndCheckEquals target ((v1 + v2) `mod` 32768) st
 
 testAnd :: Val -> Val -> Addr -> Addr -> Addr -> Property
 testAnd x y target source1 source2 = target /= source1 && target /= source2 && source1 /= source2 ==>

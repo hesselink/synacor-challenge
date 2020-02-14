@@ -8,8 +8,8 @@ import GHC.Stack (HasCallStack)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
-newtype Val = Val { unVal :: Word16 } -- TODO modulo 32768
-  deriving (Show, Eq, Ord, Num, Bits)
+newtype Val = Val { unVal :: Word16 }
+  deriving (Show, Eq, Ord, Num, Bits, Enum, Real, Integral)
 
 data Addr = Mem Word16 | Reg Word16
   deriving (Show, Eq)
