@@ -17,6 +17,7 @@ tests = testGroup "Tests" $
   , testProperty "Push" testPush
   , testProperty "Pop" testPop
   , testProperty "Equal" testEqual
+  , testProperty "GreaterThan" testGreaterThan
   , testProperty "Jump" testJump
   , testProperty "JumpIfTrue" testJumpIfTrue
   , testProperty "JumpIfFalse" testJumpIfFalse
@@ -54,6 +55,17 @@ testEqual x y target source1 source2 = target /= source1 && target /= source2 ==
         Mem l -> Val l
         Reg _ -> y
   in runAndCheckEquals target (if v1 == v2 || source1 == source2 then 1 else 0) st
+
+testGreaterThan :: Val -> Val -> Addr -> Addr -> Addr -> Property
+testGreaterThan x y target source1 source2 = target /= source1 && target /= source2 ==>
+  let st = addProgram [Gt target source1 source2] . setAt source1 x . setAt source2 y $ emptyState
+      v1 = case source1 of
+        Mem l -> Val l
+        Reg _ -> x
+      v2 = case source2 of
+        Mem l -> Val l
+        Reg _ -> y
+  in runAndCheckEquals target (if v1 > v2 && source1 /= source2 then 1 else 0) st
 
 testJump :: Val -> Val -> Reg -> Addr -> Property -- TODO test jump from register
 testJump x y (R target) source = target /= source ==>
@@ -138,6 +150,7 @@ serializeOp op = case op of
   Push a -> [2, serializeAddr a]
   Pop a -> [3, serializeAddr a]
   Eq a b c -> 4 : map serializeAddr [a, b, c]
+  Gt a b c -> 5 : map serializeAddr [a, b, c]
   Jmp a -> [6, serializeAddr a]
   Jt a b -> 7 : map serializeAddr [a, b]
   Jf a b -> 8 : map serializeAddr [a, b]
