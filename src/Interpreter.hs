@@ -117,6 +117,11 @@ runOp cd = case cd of
     v1 <- readVal
     v2 <- readVal
     writeVal target ((v1 * v2) `mod` 32768)
+  Mod -> do
+    target <- readAddr
+    v1 <- readVal
+    v2 <- readVal
+    writeVal target (v1 `mod` v2)
   And -> do
     target <- readAddr
     v1 <- readVal
