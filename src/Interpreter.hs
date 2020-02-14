@@ -72,6 +72,13 @@ parseOpCode = toEnum
 runOp :: HasCallStack => Interpreter m => OpCode -> m ()
 runOp cd = case cd of
   Halt -> return ()
+  Set -> do
+    target <- readAddr
+    v1 <- readVal
+    writeVal target v1
+  Jmp -> do
+    Val v <- readVal
+    modify $ \st -> st { address = v }
   Add -> do
     target <- readAddr
     v1 <- readVal

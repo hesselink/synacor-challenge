@@ -5,7 +5,7 @@ import Data.List (foldl')
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
-import State (Addr (..), IState (memory), emptyState, getAt, setAt, Val (Val))
+import State (Addr (..), IState (memory), emptyState, getAt, setAt, Val (Val, unVal))
 import Interpreter (runStateInterpreter)
 
 main :: IO ()
@@ -13,7 +13,23 @@ main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Tests" $
-  [ testProperty "Addition" testAddition ]
+  [ testProperty "Set" testSet
+  , testProperty "Jump" testJump
+  , testProperty "Addition" testAddition
+  ]
+
+testSet :: Val -> Reg -> Addr -> Property
+testSet x (R target) source = target /= source ==>
+  let st = addProgram [Set target source] . setAt source x $ emptyState
+      v = case source of
+        Mem l -> Val l
+        Reg _ -> x
+  in runAndCheckEquals target v st
+
+testJump :: Val -> Val -> Reg -> Addr -> Property
+testJump x y (R target) source = target /= source ==>
+  let st = addProgram [Jmp (Mem 6), Set target (Mem (unVal x)), Halt, Set target (Mem (unVal y))] $ emptyState
+  in runAndCheckEquals target y st
 
 testAddition :: Val -> Val -> Addr -> Addr -> Addr -> Property
 testAddition x y target source1 source2 = target /= source1 && target /= source2 && source1 /= source2 ==>
@@ -36,10 +52,16 @@ runAndCheckEquals addr expected st =
   in actual === expected
 
 instance Arbitrary Val where
-  arbitrary = Val <$> choose (0, 65535)
+  arbitrary = Val <$> choose (0, 32775)
 
 instance Arbitrary Addr where
-  arbitrary = oneof [ Mem <$> choose (100, 32767), Reg <$> choose (0, 7) ] -- Start at mem 100 so we can fit the program before it
+  arbitrary = oneof [ Mem <$> choose (100, 32767), getReg <$> arbitrary ] -- Start at mem 100 so we can fit the program before it
+
+newtype Reg = R { getReg :: Addr }
+  deriving (Show, Eq)
+
+instance Arbitrary Reg where
+  arbitrary = R . Reg <$> choose (0, 7)
 
 insertProgram :: Program -> HashMap Int Val -> HashMap Int Val
 insertProgram p m
@@ -55,6 +77,8 @@ serializeProgram = concatMap serializeOp
 serializeOp :: Op -> [Int]
 serializeOp op = case op of
   Halt -> [0]
+  Set a b -> 1 : map serializeAddr [a, b]
+  Jmp a -> [6, serializeAddr a]
   -- TODO
   Add a b c -> 9 : map serializeAddr [a, b, c]
   -- TODO
