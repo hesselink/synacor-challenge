@@ -13,7 +13,7 @@ import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
 import qualified Data.HashMap.Strict as HashMap
 
-import State (IState (address, memory, registers), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack)
+import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack)
 import OpCode (OpCode (..))
 
 newtype StateInterpreter a = StateInterpreter { unStateInterpreter :: State IOState a }
@@ -124,6 +124,10 @@ runOp cd = case cd of
     target <- readAddr
     v <- readVal
     writeVal target (clearBit (complement v) 15)
+  Call -> do
+   Val addr <- readVal
+   next <- gets address
+   modify $ \st -> st { address = addr, stack = Val next : stack st }
   Out -> do
     i <- unVal <$> readVal
     writeChar (chr . fromIntegral $ i)

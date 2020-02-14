@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 import Test.Tasty
-import Test.Tasty.QuickCheck (Arbitrary (arbitrary), Property, oneof, choose, (===), (==>), testProperty)
+import Test.Tasty.QuickCheck (Arbitrary (arbitrary), Property, oneof, choose, (===), (==>), testProperty, (.&&.))
 import Data.List (foldl')
 import Data.HashMap.Strict (HashMap)
 import Data.Bits ((.&.), (.|.), complement, clearBit)
@@ -27,6 +27,7 @@ tests = testGroup "Tests" $
   , testProperty "And" testAnd
   , testProperty "Or" testOr
   , testProperty "Not" testNot
+  , testProperty "Call" testCall
   ]
 
 testSet :: Val -> Reg -> Addr -> Property
@@ -72,8 +73,8 @@ testGreaterThan x y target source1 source2 = target /= source1 && target /= sour
         Reg _ -> y
   in runAndCheckEquals target (if v1 > v2 && source1 /= source2 then 1 else 0) st
 
-testJump :: Val -> Val -> Reg -> Addr -> Property -- TODO test jump from register
-testJump x y (R target) source = target /= source ==>
+testJump :: Val -> Val -> Reg -> Property -- TODO test jump from register
+testJump x y (R target) =
   let st = addProgram [ Jmp (Mem 6)
                       , Set target (Mem (unVal x))
                       , Halt
@@ -139,20 +140,34 @@ testNot x target source = target /= source ==>
         Reg _ -> x
    in runAndCheckEquals target (clearBit (complement v) 15) st
 
+testCall :: Val -> Val -> Reg -> Property -- TODO test jump from register
+testCall x y (R target) =
+  let st = addProgram [ Call (Mem 6)
+                      , Set target (Mem (unVal x))
+                      , Halt
+                      , Set target (Mem (unVal y))
+                      ] $ emptyState
+  in runAndCheck [equalityCheck target y, stackTopCheck 2] st
+
 addProgram :: Program -> IState -> IState
 addProgram p st = st { memory = insertProgram p (memory st) }
 
-runAndCheckEquals :: Addr -> Val -> IState -> Property
-runAndCheckEquals addr expected st =
+runAndCheck :: [IState -> Property] -> IState -> Property
+runAndCheck checks st =
   let (st', _) = runStateInterpreter st ""
-      actual = getAt addr st'
-  in actual === expected
+  in foldr1 (.&&.) (map ($ st') checks)
+
+runAndCheckEquals :: Addr -> Val -> IState -> Property
+runAndCheckEquals addr expected = runAndCheck [equalityCheck addr expected]
+
+equalityCheck :: Addr -> Val -> IState -> Property
+equalityCheck addr expected st = getAt addr st === expected
 
 runAndCheckStackTop :: Val -> IState -> Property
-runAndCheckStackTop expected st =
-  let (st', _) = runStateInterpreter st ""
-      actual = head (stack st')
-  in actual === expected
+runAndCheckStackTop expected = runAndCheck [stackTopCheck expected]
+
+stackTopCheck :: Val -> IState -> Property
+stackTopCheck expected st = head (stack st) === expected
 
 instance Arbitrary Val where
   arbitrary = Val <$> choose (0, 32775)
@@ -200,6 +215,7 @@ serializeOp op = case op of
   Or a b c -> 13 : map serializeAddr [a, b, c]
   Not a b -> 14 : map serializeAddr [a, b]
   -- TODO
+  Call a -> [17, serializeAddr a]
   _ -> error "Not implemented"
 
 serializeAddr :: Addr -> Word16
