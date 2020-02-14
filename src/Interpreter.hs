@@ -11,7 +11,7 @@ import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
 import qualified Data.HashMap.Strict as HashMap
 
-import State (IState (address, memory, registers), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt)
+import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt)
 import OpCode (OpCode (..))
 
 newtype StateInterpreter a = StateInterpreter { unStateInterpreter :: State IOState a }
@@ -76,6 +76,9 @@ runOp cd = case cd of
     target <- readAddr
     v1 <- readVal
     writeVal target v1
+  Push -> do
+    v <- readVal
+    push v
   Jmp -> do
     Val addr <- readVal
     modify $ \st -> st { address = addr }
@@ -126,3 +129,6 @@ readAddr = do
 
 writeVal :: HasCallStack => Interpreter m => Addr -> Val -> m ()
 writeVal addr val = modify (setAt addr val)
+
+push :: Interpreter m => Val -> m ()
+push v = modify $ \st -> st { stack = v : stack st }

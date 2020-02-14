@@ -5,7 +5,7 @@ import Data.List (foldl')
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
-import State (Addr (..), IState (memory), emptyState, getAt, setAt, Val (Val, unVal))
+import State (Addr (..), IState (memory, stack), emptyState, getAt, setAt, Val (Val, unVal))
 import Interpreter (runStateInterpreter)
 
 main :: IO ()
@@ -14,6 +14,7 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Tests" $
   [ testProperty "Set" testSet
+  , testProperty "Push" testPush
   , testProperty "Equal" testEqual
   , testProperty "Jump" testJump
   , testProperty "JumpIfTrue" testJumpIfTrue
@@ -28,6 +29,14 @@ testSet x (R target) source = target /= source ==>
         Mem l -> Val l
         Reg _ -> x
   in runAndCheckEquals target v st
+
+testPush :: Val -> Addr -> Property
+testPush x source =
+  let st = addProgram [Push source] . setAt source x $ emptyState
+      v = case source of
+        Mem l -> Val l
+        Reg _ -> x
+  in runAndCheckStackTop v st
 
 testEqual :: Val -> Val -> Addr -> Addr -> Addr -> Property
 testEqual x y target source1 source2 = target /= source1 && target /= source2 ==>
@@ -87,6 +96,12 @@ runAndCheckEquals addr expected st =
       actual = getAt addr st'
   in actual === expected
 
+runAndCheckStackTop :: Val -> IState -> Property
+runAndCheckStackTop expected st =
+  let (st', _) = runStateInterpreter st ""
+      actual = head (stack st')
+  in actual === expected
+
 instance Arbitrary Val where
   arbitrary = Val <$> choose (0, 32775)
 
@@ -114,6 +129,7 @@ serializeOp :: Op -> [Int]
 serializeOp op = case op of
   Halt -> [0]
   Set a b -> 1 : map serializeAddr [a, b]
+  Push a -> [2, serializeAddr a]
   Eq a b c -> 4 : map serializeAddr [a, b, c]
   Jmp a -> [6, serializeAddr a]
   Jt a b -> 7 : map serializeAddr [a, b]
