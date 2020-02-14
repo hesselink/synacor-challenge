@@ -5,7 +5,7 @@ import Data.List (foldl')
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
-import State (Addr (..), IState (memory, stack), emptyState, getAt, setAt, Val (Val, unVal))
+import State (Addr (..), IState (memory, stack), emptyState, getAt, setAt, Val (Val, unVal), pushStack)
 import Interpreter (runStateInterpreter)
 
 main :: IO ()
@@ -15,6 +15,7 @@ tests :: TestTree
 tests = testGroup "Tests" $
   [ testProperty "Set" testSet
   , testProperty "Push" testPush
+  , testProperty "Pop" testPop
   , testProperty "Equal" testEqual
   , testProperty "Jump" testJump
   , testProperty "JumpIfTrue" testJumpIfTrue
@@ -37,6 +38,11 @@ testPush x source =
         Mem l -> Val l
         Reg _ -> x
   in runAndCheckStackTop v st
+
+testPop :: Val -> Addr -> Property
+testPop x target =
+  let st = addProgram [Pop target] . pushStack x $ emptyState
+  in runAndCheckEquals target x st
 
 testEqual :: Val -> Val -> Addr -> Addr -> Addr -> Property
 testEqual x y target source1 source2 = target /= source1 && target /= source2 ==>
@@ -130,6 +136,7 @@ serializeOp op = case op of
   Halt -> [0]
   Set a b -> 1 : map serializeAddr [a, b]
   Push a -> [2, serializeAddr a]
+  Pop a -> [3, serializeAddr a]
   Eq a b c -> 4 : map serializeAddr [a, b, c]
   Jmp a -> [6, serializeAddr a]
   Jt a b -> 7 : map serializeAddr [a, b]

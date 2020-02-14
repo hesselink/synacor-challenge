@@ -58,3 +58,11 @@ getReg 5 (_, _, _, _, _, v, _, _) = v
 getReg 6 (_, _, _, _, _, _, v, _) = v
 getReg 7 (_, _, _, _, _, _, _, v) = v
 getReg n _ = error $ "Register out of bounds: " ++ show n
+
+pushStack :: Val -> IState -> IState
+pushStack v st = st { stack = v : stack st }
+
+popStack :: IState -> (Val, IState)
+popStack st =
+  let h:tl = stack st
+  in (h, st { stack = tl })
