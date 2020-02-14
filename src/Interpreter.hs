@@ -83,6 +83,10 @@ runOp cd = case cd of
     Val cond <- readVal
     Val addr <- readVal
     when (cond > 0) $ modify $ \st -> st { address = addr }
+  Jf -> do
+    Val cond <- readVal
+    Val addr <- readVal
+    when (cond == 0) $ modify $ \st -> st { address = addr }
   Add -> do
     target <- readAddr
     v1 <- readVal
