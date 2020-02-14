@@ -3,21 +3,22 @@ module State where
 
 import Data.Maybe (fromMaybe)
 import Data.Bits (Bits)
+import Data.Word (Word16)
 import GHC.Stack (HasCallStack)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
-newtype Val = Val { unVal :: Int } -- TODO modulo 32768
+newtype Val = Val { unVal :: Word16 } -- TODO modulo 32768
   deriving (Show, Eq, Ord, Num, Bits)
 
-data Addr = Mem Int | Reg Int
+data Addr = Mem Word16 | Reg Word16
   deriving (Show, Eq)
 
 data IState = IState
-  { memory :: HashMap Int Val
+  { memory :: HashMap Word16 Val
   , registers :: (Val, Val, Val, Val, Val, Val, Val, Val)
   , stack :: [Val]
-  , address :: Int
+  , address :: Word16
   } deriving Show
 
 emptyState :: IState
@@ -38,7 +39,7 @@ getAt addr st = case addr of
   Mem loc -> fromMaybe (error $ "Uninitialized memory at: " ++ show loc) $ HashMap.lookup loc (memory st)
   Reg n -> getReg n (registers st)
 
-setReg :: HasCallStack => Int -> Val -> (Val, Val, Val, Val, Val, Val, Val, Val) -> (Val, Val, Val, Val, Val, Val, Val, Val)
+setReg :: HasCallStack => Word16 -> Val -> (Val, Val, Val, Val, Val, Val, Val, Val) -> (Val, Val, Val, Val, Val, Val, Val, Val)
 setReg 0 v (_, b, c, d, e, f, g, h) = (v, b, c, d, e, f, g, h)
 setReg 1 v (a, _, c, d, e, f, g, h) = (a, v, c, d, e, f, g, h)
 setReg 2 v (a, b, _, d, e, f, g, h) = (a, b, v, d, e, f, g, h)
@@ -49,7 +50,7 @@ setReg 6 v (a, b, c, d, e, f, _, h) = (a, b, c, d, e, f, v, h)
 setReg 7 v (a, b, c, d, e, f, g, _) = (a, b, c, d, e, f, g, v)
 setReg n _ _ = error $ "Register out of bounds: " ++ show n
 
-getReg :: HasCallStack => Int -> (Val, Val, Val, Val, Val, Val, Val, Val) -> Val
+getReg :: HasCallStack => Word16 -> (Val, Val, Val, Val, Val, Val, Val, Val) -> Val
 getReg 0 (v, _, _, _, _, _, _, _) = v
 getReg 1 (_, v, _, _, _, _, _, _) = v
 getReg 2 (_, _, v, _, _, _, _, _) = v

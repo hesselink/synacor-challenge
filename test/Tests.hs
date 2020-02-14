@@ -3,7 +3,8 @@ import Test.Tasty
 import Test.Tasty.QuickCheck (Arbitrary (arbitrary), Property, oneof, choose, (===), (==>), testProperty)
 import Data.List (foldl')
 import Data.HashMap.Strict (HashMap)
-import Data.Bits ((.&.), (.|.))
+import Data.Bits ((.&.), (.|.), complement, clearBit)
+import Data.Word (Word16)
 import qualified Data.HashMap.Strict as HashMap
 
 import State (Addr (..), IState (memory, stack), emptyState, getAt, setAt, Val (Val, unVal), pushStack)
@@ -25,6 +26,7 @@ tests = testGroup "Tests" $
   , testProperty "Addition" testAddition
   , testProperty "And" testAnd
   , testProperty "Or" testOr
+  , testProperty "Not" testNot
   ]
 
 testSet :: Val -> Reg -> Addr -> Property
@@ -129,6 +131,14 @@ testOr x y target source1 source2 = target /= source1 && target /= source2 && so
         Reg _ -> y
   in runAndCheckEquals target (v1 .|. v2) st
 
+testNot :: Val -> Addr -> Addr -> Property
+testNot x target source = target /= source ==>
+  let st = addProgram [Not target source] . setAt source x $ emptyState
+      v = case source of
+        Mem l -> Val l
+        Reg _ -> x
+   in runAndCheckEquals target (clearBit (complement v) 15) st
+
 addProgram :: Program -> IState -> IState
 addProgram p st = st { memory = insertProgram p (memory st) }
 
@@ -162,7 +172,7 @@ instance Arbitrary Reg where
 instance Arbitrary Mem where
   arbitrary = M . Mem <$> choose (100, 32767) -- Start at mem 100 so we can fit the program before it
 
-insertProgram :: Program -> HashMap Int Val -> HashMap Int Val
+insertProgram :: Program -> HashMap Word16 Val -> HashMap Word16 Val
 insertProgram p m
   = foldl' (\m' (k, v) -> HashMap.insert k v m') m
   . zip [0..]
@@ -170,10 +180,10 @@ insertProgram p m
   . serializeProgram
   $ p ++ [Halt]
 
-serializeProgram :: Program -> [Int]
+serializeProgram :: Program -> [Word16]
 serializeProgram = concatMap serializeOp
 
-serializeOp :: Op -> [Int]
+serializeOp :: Op -> [Word16]
 serializeOp op = case op of
   Halt -> [0]
   Set a b -> 1 : map serializeAddr [a, b]
@@ -188,10 +198,11 @@ serializeOp op = case op of
   -- TODO
   And a b c -> 12 : map serializeAddr [a, b, c]
   Or a b c -> 13 : map serializeAddr [a, b, c]
+  Not a b -> 14 : map serializeAddr [a, b]
   -- TODO
   _ -> error "Not implemented"
 
-serializeAddr :: Addr -> Int
+serializeAddr :: Addr -> Word16
 serializeAddr (Mem m) = m
 serializeAddr (Reg r) = r + 32768
 

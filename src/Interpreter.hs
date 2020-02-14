@@ -5,9 +5,10 @@ module Interpreter where
 
 import Control.Monad.State.Strict (MonadState (), State, get, gets, put, modify, execState)
 import Control.Monad (when)
+import Data.Word (Word16)
 import Data.Maybe (fromMaybe)
 import Data.Char (chr)
-import Data.Bits ((.&.), (.|.))
+import Data.Bits ((.&.), (.|.), clearBit, complement)
 import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
 import qualified Data.HashMap.Strict as HashMap
@@ -66,8 +67,8 @@ readOpCode = do
   curMem <- unVal <$> readVal
   return (parseOpCode curMem)
 
-parseOpCode :: Int -> OpCode
-parseOpCode = toEnum
+parseOpCode :: Word16 -> OpCode
+parseOpCode = toEnum . fromIntegral
 
 runOp :: HasCallStack => Interpreter m => OpCode -> m ()
 runOp cd = case cd of
@@ -119,9 +120,13 @@ runOp cd = case cd of
     v1 <- readVal
     v2 <- readVal
     writeVal target (v1 .|. v2)
+  Not -> do
+    target <- readAddr
+    v <- readVal
+    writeVal target (clearBit (complement v) 15)
   Out -> do
     i <- unVal <$> readVal
-    writeChar (chr i)
+    writeChar (chr . fromIntegral $ i)
   Noop -> return ()
   op -> error $ "not implemented: " ++ show op
 
