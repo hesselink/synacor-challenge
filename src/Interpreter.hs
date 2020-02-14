@@ -77,8 +77,12 @@ runOp cd = case cd of
     v1 <- readVal
     writeVal target v1
   Jmp -> do
-    Val v <- readVal
-    modify $ \st -> st { address = v }
+    Val addr <- readVal
+    modify $ \st -> st { address = addr }
+  Jt -> do
+    Val cond <- readVal
+    Val addr <- readVal
+    when (cond > 0) $ modify $ \st -> st { address = addr }
   Add -> do
     target <- readAddr
     v1 <- readVal

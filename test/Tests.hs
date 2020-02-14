@@ -15,6 +15,7 @@ tests :: TestTree
 tests = testGroup "Tests" $
   [ testProperty "Set" testSet
   , testProperty "Jump" testJump
+  , testProperty "JumpIfTrue" testJumpIfTrue
   , testProperty "Addition" testAddition
   ]
 
@@ -28,8 +29,22 @@ testSet x (R target) source = target /= source ==>
 
 testJump :: Val -> Val -> Reg -> Addr -> Property
 testJump x y (R target) source = target /= source ==>
-  let st = addProgram [Jmp (Mem 6), Set target (Mem (unVal x)), Halt, Set target (Mem (unVal y))] $ emptyState
+  let st = addProgram [ Jmp (Mem 6)
+                      , Set target (Mem (unVal x))
+                      , Halt
+                      , Set target (Mem (unVal y))
+                      ] $ emptyState
   in runAndCheckEquals target y st
+
+testJumpIfTrue :: Bool -> Val -> Val -> Reg -> Addr -> Property
+testJumpIfTrue b x y (R target) source = target /= source ==>
+  let st = addProgram [ Jt (Mem $ if b then 1 else 0) (Mem 7)
+                      , Set target (Mem (unVal x))
+                      , Halt
+                      , Set target (Mem (unVal y))
+                      ] $ emptyState
+  in runAndCheckEquals target (if b then y else x) st
+
 
 testAddition :: Val -> Val -> Addr -> Addr -> Addr -> Property
 testAddition x y target source1 source2 = target /= source1 && target /= source2 && source1 /= source2 ==>
@@ -79,6 +94,7 @@ serializeOp op = case op of
   Halt -> [0]
   Set a b -> 1 : map serializeAddr [a, b]
   Jmp a -> [6, serializeAddr a]
+  Jt a b -> 7 : map serializeAddr [a, b]
   -- TODO
   Add a b c -> 9 : map serializeAddr [a, b, c]
   -- TODO
