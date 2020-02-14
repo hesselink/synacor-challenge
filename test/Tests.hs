@@ -14,6 +14,7 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Tests" $
   [ testProperty "Set" testSet
+  , testProperty "Equal" testEqual
   , testProperty "Jump" testJump
   , testProperty "JumpIfTrue" testJumpIfTrue
   , testProperty "JumpIfFalse" testJumpIfFalse
@@ -28,7 +29,18 @@ testSet x (R target) source = target /= source ==>
         Reg _ -> x
   in runAndCheckEquals target v st
 
-testJump :: Val -> Val -> Reg -> Addr -> Property
+testEqual :: Val -> Val -> Addr -> Addr -> Addr -> Property
+testEqual x y target source1 source2 = target /= source1 && target /= source2 ==>
+  let st = addProgram [Eq target source1 source2] . setAt source1 x . setAt source2 y $ emptyState
+      v1 = case source1 of
+        Mem l -> Val l
+        Reg _ -> x
+      v2 = case source2 of
+        Mem l -> Val l
+        Reg _ -> y
+  in runAndCheckEquals target (if v1 == v2 || source1 == source2 then 1 else 0) st
+
+testJump :: Val -> Val -> Reg -> Addr -> Property -- TODO test jump from register
 testJump x y (R target) source = target /= source ==>
   let st = addProgram [ Jmp (Mem 6)
                       , Set target (Mem (unVal x))
@@ -102,6 +114,7 @@ serializeOp :: Op -> [Int]
 serializeOp op = case op of
   Halt -> [0]
   Set a b -> 1 : map serializeAddr [a, b]
+  Eq a b c -> 4 : map serializeAddr [a, b, c]
   Jmp a -> [6, serializeAddr a]
   Jt a b -> 7 : map serializeAddr [a, b]
   Jf a b -> 8 : map serializeAddr [a, b]

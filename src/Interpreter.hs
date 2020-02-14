@@ -87,6 +87,11 @@ runOp cd = case cd of
     Val cond <- readVal
     Val addr <- readVal
     when (cond == 0) $ modify $ \st -> st { address = addr }
+  Eq -> do
+    target <- readAddr
+    v1 <- readVal
+    v2 <- readVal
+    writeVal target (if v1 == v2 then 1 else 0)
   Add -> do
     target <- readAddr
     v1 <- readVal
