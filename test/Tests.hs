@@ -1,8 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 import Test.Tasty
-import Test.Tasty.QuickCheck
+import Test.Tasty.QuickCheck (Arbitrary (arbitrary), Property, oneof, choose, (===), (==>), testProperty)
 import Data.List (foldl')
 import Data.HashMap.Strict (HashMap)
+import Data.Bits ((.&.), (.|.))
 import qualified Data.HashMap.Strict as HashMap
 
 import State (Addr (..), IState (memory, stack), emptyState, getAt, setAt, Val (Val, unVal), pushStack)
@@ -22,6 +23,8 @@ tests = testGroup "Tests" $
   , testProperty "JumpIfTrue" testJumpIfTrue
   , testProperty "JumpIfFalse" testJumpIfFalse
   , testProperty "Addition" testAddition
+  , testProperty "And" testAnd
+  , testProperty "Or" testOr
   ]
 
 testSet :: Val -> Reg -> Addr -> Property
@@ -105,6 +108,28 @@ testAddition x y target source1 source2 = target /= source1 && target /= source2
         Reg _ -> y
   in runAndCheckEquals target (v1 + v2) st
 
+testAnd :: Val -> Val -> Addr -> Addr -> Addr -> Property
+testAnd x y target source1 source2 = target /= source1 && target /= source2 && source1 /= source2 ==>
+  let st = addProgram [And target source1 source2] . setAt source1 x . setAt source2 y $ emptyState
+      v1 = case source1 of
+        Mem l -> Val l
+        Reg _ -> x
+      v2 = case source2 of
+        Mem l -> Val l
+        Reg _ -> y
+  in runAndCheckEquals target (v1 .&. v2) st
+
+testOr :: Val -> Val -> Addr -> Addr -> Addr -> Property
+testOr x y target source1 source2 = target /= source1 && target /= source2 && source1 /= source2 ==>
+  let st = addProgram [Or target source1 source2] . setAt source1 x . setAt source2 y $ emptyState
+      v1 = case source1 of
+        Mem l -> Val l
+        Reg _ -> x
+      v2 = case source2 of
+        Mem l -> Val l
+        Reg _ -> y
+  in runAndCheckEquals target (v1 .|. v2) st
+
 addProgram :: Program -> IState -> IState
 addProgram p st = st { memory = insertProgram p (memory st) }
 
@@ -154,8 +179,10 @@ serializeOp op = case op of
   Jmp a -> [6, serializeAddr a]
   Jt a b -> 7 : map serializeAddr [a, b]
   Jf a b -> 8 : map serializeAddr [a, b]
-  -- TODO
   Add a b c -> 9 : map serializeAddr [a, b, c]
+  -- TODO
+  And a b c -> 12 : map serializeAddr [a, b, c]
+  Or a b c -> 13 : map serializeAddr [a, b, c]
   -- TODO
   _ -> error "Not implemented"
 

@@ -2,12 +2,13 @@
 module State where
 
 import Data.Maybe (fromMaybe)
+import Data.Bits (Bits)
 import GHC.Stack (HasCallStack)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
 newtype Val = Val { unVal :: Int } -- TODO modulo 32768
-  deriving (Show, Eq, Ord, Num)
+  deriving (Show, Eq, Ord, Num, Bits)
 
 data Addr = Mem Int | Reg Int
   deriving (Show, Eq)

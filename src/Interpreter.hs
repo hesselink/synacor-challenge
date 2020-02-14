@@ -7,6 +7,7 @@ import Control.Monad.State (MonadState (), State, get, gets, put, modify, execSt
 import Control.Monad (when)
 import Data.Maybe (fromMaybe)
 import Data.Char (chr)
+import Data.Bits ((.&.), (.|.))
 import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
 import qualified Data.HashMap.Strict as HashMap
@@ -109,6 +110,16 @@ runOp cd = case cd of
     v1 <- readVal
     v2 <- readVal
     writeVal target (v1 + v2)
+  And -> do
+    target <- readAddr
+    v1 <- readVal
+    v2 <- readVal
+    writeVal target (v1 .&. v2)
+  Or -> do
+    target <- readAddr
+    v1 <- readVal
+    v2 <- readVal
+    writeVal target (v1 .|. v2)
   Out -> do
     i <- unVal <$> readVal
     writeChar (chr i)
