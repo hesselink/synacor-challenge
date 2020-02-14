@@ -8,10 +8,12 @@ import Control.Monad (when)
 import Data.Word (Word16)
 import Data.Maybe (fromMaybe)
 import Data.Char (chr)
+import Data.DList (DList, snoc)
 import Data.Bits ((.&.), (.|.), clearBit, complement)
 import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.DList as DList
 
 import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack)
 import OpCode (OpCode (..))
@@ -21,7 +23,7 @@ newtype StateInterpreter a = StateInterpreter { unStateInterpreter :: State IOSt
 
 data IOState = IOState
   { state :: IState
-  , output :: String
+  , output :: DList Char
   , input :: String
   }
 
@@ -35,7 +37,7 @@ class MonadState IState m => Interpreter m where
 
 instance Interpreter StateInterpreter where
   writeChar c = StateInterpreter $
-    modify $ \st -> st { output = c : output st }
+    modify $ \st -> st { output = output st `snoc` c}
   readChar = StateInterpreter $ do
     st <- get
     put st { input = tail (input st) }
@@ -46,10 +48,10 @@ runStateInterpreter st inp = f $ execState (unStateInterpreter run) ioState
   where
     ioState = IOState
       { state = st
-      , output = []
+      , output = mempty
       , input = inp
       }
-    f ioSt = (state ioSt, output ioSt)
+    f ioSt = (state ioSt, DList.toList $ output ioSt)
 
 run :: Interpreter m => m ()
 run = do
