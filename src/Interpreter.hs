@@ -6,16 +6,14 @@ module Interpreter where
 import Control.Monad.State.Strict (MonadState (), State, get, gets, put, modify, execState)
 import Control.Monad (when)
 import Data.Word (Word16)
-import Data.Maybe (fromMaybe)
 import Data.Char (chr)
 import Data.DList (DList, snoc)
 import Data.Bits ((.&.), (.|.), clearBit, complement)
 import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.DList as DList
 
-import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack)
+import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack, readMem)
 import OpCode (OpCode (..))
 
 newtype StateInterpreter a = StateInterpreter { unStateInterpreter :: State IOState a }
@@ -136,6 +134,11 @@ runOp cd = case cd of
     target <- readAddr
     v <- readVal
     writeVal target (clearBit (complement v) 15)
+  RMem -> do
+   target <- readAddr
+   (Val v) <- readVal
+   mem <- gets memory
+   writeVal target (readMem v mem)
   Call -> do
    Val addr <- readVal
    next <- gets address
@@ -159,7 +162,7 @@ readAddr = do
   st <- get
   let addr = address st
       mem = memory st
-      curVal = fromMaybe (error $ "Uninitialized memory at: " ++ show addr) $ HashMap.lookup addr mem
+      curVal = readMem addr mem
   put st { address = addr + 1 }
   if curVal < 32768
   then return (Mem $ unVal curVal)

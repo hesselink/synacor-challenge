@@ -36,8 +36,11 @@ setAt addr val st = case addr of
 
 getAt :: HasCallStack => Addr -> IState -> Val
 getAt addr st = case addr of
-  Mem loc -> fromMaybe (error $ "Uninitialized memory at: " ++ show loc) $ HashMap.lookup loc (memory st)
+  Mem loc -> readMem loc (memory st)
   Reg n -> getReg n (registers st)
+
+readMem :: Word16 -> HashMap Word16 Val -> Val
+readMem addr mem = fromMaybe (error $ "Uninitialized memory at: " ++ show addr) $ HashMap.lookup addr mem
 
 setReg :: HasCallStack => Word16 -> Val -> (Val, Val, Val, Val, Val, Val, Val, Val) -> (Val, Val, Val, Val, Val, Val, Val, Val)
 setReg 0 v (_, b, c, d, e, f, g, h) = (v, b, c, d, e, f, g, h)

@@ -29,6 +29,7 @@ tests = testGroup "Tests" $
   , testProperty "And" testAnd
   , testProperty "Or" testOr
   , testProperty "Not" testNot
+  , testProperty "ReadMemory" testReadMemory
   , testProperty "Call" testCall
   ]
 
@@ -164,6 +165,11 @@ testNot x target source = target /= source ==>
         Reg _ -> x
    in runAndCheckEquals target (clearBit (complement v) 15) st
 
+testReadMemory :: Val -> Addr -> Mem -> Property
+testReadMemory x target (M source) = target /= source ==>
+  let st = addProgram [RMem target source] . setAt source x $ emptyState
+  in runAndCheckEquals target x st
+
 testCall :: Val -> Val -> Reg -> Property -- TODO test jump from register
 testCall x y (R target) =
   let st = addProgram [ Call (Mem 6)
@@ -240,6 +246,7 @@ serializeOp op = case op of
   And a b c -> 12 : map serializeAddr [a, b, c]
   Or a b c -> 13 : map serializeAddr [a, b, c]
   Not a b -> 14 : map serializeAddr [a, b]
+  RMem a b -> 15 : map serializeAddr [a, b]
   -- TODO
   Call a -> [17, serializeAddr a]
   _ -> error "Not implemented"
