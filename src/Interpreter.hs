@@ -7,6 +7,7 @@ import Control.Monad.State.Strict (MonadState (), State, get, gets, put, modify,
 import Control.Monad (when)
 import Data.Word (Word16)
 import Data.Maybe (fromMaybe)
+import Text.Read (readMaybe)
 import Data.Char (chr, ord)
 import Data.DList (DList, snoc)
 import Data.Bits ((.&.), (.|.), clearBit, complement)
@@ -37,6 +38,7 @@ instance Interpreter StateInterpreter where
     st <- get
     put st { input = tail (input st) }
     return (head (input st))
+  debugMenu = writeChar '~'
 
 runStateInterpreter :: IState -> String -> (IState, String)
 runStateInterpreter st inp = f $ execState (unStateInterpreter run) ioState
@@ -54,10 +56,12 @@ newtype IOInterpreter a = IOInterpreter { unIOInterpreter :: StateT IState IO a 
 instance Interpreter IOInterpreter where
   writeChar = liftIO . putChar
   readChar = liftIO getChar
+  debugMenu = debugIO
 
 class MonadState IState m => Interpreter m where
   writeChar :: Char -> m ()
   readChar :: m Char
+  debugMenu :: m ()
 
 runIOInterpreter :: IState -> IO IState
 runIOInterpreter st = execStateT (unIOInterpreter run) st
@@ -171,7 +175,10 @@ runOp cd = case cd of
   In -> do
     target <- readAddr
     c <- readChar
-    writeVal target (Val . fromIntegral . ord $ c)
+    if c == '~'
+    then debugMenu
+    else
+      writeVal target (Val . fromIntegral . ord $ c)
   Noop -> return ()
 
 readVal :: HasCallStack => Interpreter m => m Val
@@ -199,3 +206,55 @@ push v = modify (pushStack v)
 
 pop :: Interpreter m => m (Maybe Val)
 pop = State.state popStack
+
+-- debug/break world
+
+data DebugAction
+  = SaveState
+  | LoadState
+  | SetRegister8
+  deriving (Show, Eq)
+
+debugIO :: IOInterpreter ()
+debugIO = do
+  printMenu allActions
+  action <- readChoice allActions
+  runAction action
+  where
+    allActions = [LoadState, SaveState, SetRegister8]
+
+printMenu :: [DebugAction] -> IOInterpreter ()
+printMenu = mapM_ (uncurry printAction) . zip [1..]
+
+printAction :: Int -> DebugAction -> IOInterpreter ()
+printAction n act = liftIO $ do
+  putStrLn (show n ++ ". " ++ showAction act)
+  where
+    showAction LoadState = "Load state from file."
+    showAction SaveState = "Save state to file."
+    showAction SetRegister8 = "Set value of register 8."
+
+readChoice :: [DebugAction] -> IOInterpreter DebugAction
+readChoice acts = do
+  str <- liftIO getLine
+  case readMaybe str of
+    Just n | n > 0 && n <= length acts -> return $ acts !! (n - 1)
+    _ -> readChoice acts
+
+runAction :: DebugAction -> IOInterpreter ()
+runAction SaveState = do
+  liftIO $ putStrLn "Enter file name: "
+  fileName <- liftIO getLine
+  contents <- gets show
+  liftIO $ writeFile fileName contents
+runAction LoadState = do
+  liftIO $ putStrLn "Enter file name: "
+  fileName <- liftIO getLine
+  contents <- liftIO $ readFile fileName
+  put (read contents)
+runAction SetRegister8 = do
+  liftIO $ putStrLn "Enter new value: "
+  str <- liftIO getLine
+  case readMaybe str of
+    Just v -> writeVal (Reg 7) (Val v)
+    _ -> runAction SetRegister8
