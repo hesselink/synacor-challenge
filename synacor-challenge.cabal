@@ -20,7 +20,8 @@ library
       Interpreter,
       State,
       OpCode,
-      ParseBin
+      ParseBin,
+      Coins
   hs-source-dirs:
       src
   build-depends:
