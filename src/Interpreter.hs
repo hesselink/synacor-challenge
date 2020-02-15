@@ -3,11 +3,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Interpreter where
 
-import Control.Monad.State.Strict (MonadState (), State, get, gets, put, modify, execState)
+import Control.Monad.State.Strict (MonadState (), State, get, gets, put, modify, execState, StateT, liftIO, MonadIO, execStateT)
 import Control.Monad (when)
 import Data.Word (Word16)
 import Data.Maybe (fromMaybe)
-import Data.Char (chr)
+import Data.Char (chr, ord)
 import Data.DList (DList, snoc)
 import Data.Bits ((.&.), (.|.), clearBit, complement)
 import GHC.Stack (HasCallStack)
@@ -30,10 +30,6 @@ instance MonadState IState StateInterpreter where
   get = StateInterpreter (gets state)
   put x = StateInterpreter (modify $ \st -> st { state = x })
 
-class MonadState IState m => Interpreter m where
-  writeChar :: Char -> m ()
-  readChar :: m Char
-
 instance Interpreter StateInterpreter where
   writeChar c = StateInterpreter $
     modify $ \st -> st { output = output st `snoc` c}
@@ -51,6 +47,20 @@ runStateInterpreter st inp = f $ execState (unStateInterpreter run) ioState
       , input = inp
       }
     f ioSt = (state ioSt, DList.toList $ output ioSt)
+
+newtype IOInterpreter a = IOInterpreter { unIOInterpreter :: StateT IState IO a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadState IState)
+
+instance Interpreter IOInterpreter where
+  writeChar = liftIO . putChar
+  readChar = liftIO getChar
+
+class MonadState IState m => Interpreter m where
+  writeChar :: Char -> m ()
+  readChar :: m Char
+
+runIOInterpreter :: IState -> IO IState
+runIOInterpreter st = execStateT (unIOInterpreter run) st
 
 run :: Interpreter m => m ()
 run = do
@@ -158,8 +168,11 @@ runOp cd = case cd of
   Out -> do
     i <- unVal <$> readVal
     writeChar (chr . fromIntegral $ i)
+  In -> do
+    target <- readAddr
+    c <- readChar
+    writeVal target (Val . fromIntegral . ord $ c)
   Noop -> return ()
-  op -> error $ "not implemented: " ++ show op
 
 readVal :: HasCallStack => Interpreter m => m Val
 readVal = do
