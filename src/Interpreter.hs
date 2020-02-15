@@ -12,6 +12,7 @@ import Data.Char (chr, ord)
 import Data.DList (DList, snoc)
 import Data.Bits ((.&.), (.|.), clearBit, complement)
 import GHC.Stack (HasCallStack)
+import System.IO (Handle, hReady, stdin)
 import qualified Control.Monad.State as State
 import qualified Data.DList as DList
 
@@ -38,7 +39,8 @@ instance Interpreter StateInterpreter where
     st <- get
     put st { input = tail (input st) }
     return (head (input st))
-  debugMenu = writeChar '~'
+  debugMenu = return ()
+  checkDebugInterrupt = return ()
 
 runStateInterpreter :: IState -> String -> (IState, String)
 runStateInterpreter st inp = f $ execState (unStateInterpreter run) ioState
@@ -57,11 +59,13 @@ instance Interpreter IOInterpreter where
   writeChar = liftIO . putChar
   readChar = liftIO getChar
   debugMenu = debugIO
+  checkDebugInterrupt = checkDebugIO
 
 class MonadState IState m => Interpreter m where
   writeChar :: Char -> m ()
   readChar :: m Char
   debugMenu :: m ()
+  checkDebugInterrupt :: m ()
 
 runIOInterpreter :: IState -> IO IState
 runIOInterpreter st = execStateT (unIOInterpreter run) st
@@ -69,6 +73,7 @@ runIOInterpreter st = execStateT (unIOInterpreter run) st
 run :: Interpreter m => m ()
 run = do
   step
+  checkDebugInterrupt
   h <- gets halt
   when (not h) run
 
@@ -175,7 +180,7 @@ runOp cd = case cd of
   In -> do
     target <- readAddr
     c <- readChar
-    if c == '~'
+    if c == '\ESC'
     then debugMenu
     else
       writeVal target (Val . fromIntegral . ord $ c)
@@ -213,6 +218,7 @@ data DebugAction
   = SaveState
   | LoadState
   | SetRegister8
+  | Return
   deriving (Show, Eq)
 
 debugIO :: IOInterpreter ()
@@ -221,7 +227,7 @@ debugIO = do
   action <- readChoice allActions
   runAction action
   where
-    allActions = [LoadState, SaveState, SetRegister8]
+    allActions = [LoadState, SaveState, SetRegister8, Return]
 
 printMenu :: [DebugAction] -> IOInterpreter ()
 printMenu = mapM_ (uncurry printAction) . zip [1..]
@@ -233,6 +239,7 @@ printAction n act = liftIO $ do
     showAction LoadState = "Load state from file."
     showAction SaveState = "Save state to file."
     showAction SetRegister8 = "Set value of register 8."
+    showAction Return = "Return."
 
 readChoice :: [DebugAction] -> IOInterpreter DebugAction
 readChoice acts = do
@@ -258,3 +265,18 @@ runAction SetRegister8 = do
   case readMaybe str of
     Just v -> writeVal (Reg 7) (Val v)
     _ -> runAction SetRegister8
+runAction Return = return ()
+
+ifReadyDo :: Handle -> IO a -> IO (Maybe a)
+ifReadyDo hnd x = hReady hnd >>= f
+   where f True = x >>= return . Just
+         f _    = return Nothing
+
+checkDebugIO :: IOInterpreter ()
+checkDebugIO = do
+  ready <- liftIO $ hReady stdin
+  when ready $ do
+    c <- liftIO $ getChar
+    case c of
+      '\ESC' -> debugIO
+      _ -> return ()
