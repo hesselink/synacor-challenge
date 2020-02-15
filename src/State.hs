@@ -74,3 +74,11 @@ popStack st =
   case stack st of
     h:tl -> (Just h, st { stack = tl })
     [] -> (Nothing, st)
+
+valToAddr :: HasCallStack => Val -> Addr
+valToAddr v =
+  if v < 32768
+  then Mem (unVal v)
+  else if v < 32776
+  then Reg (unVal v - 32768)
+  else error $ "Value out of bounds: " ++ show v

@@ -14,7 +14,7 @@ import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
 import qualified Data.DList as DList
 
-import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack, readMem, halt)
+import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack, readMem, halt, valToAddr)
 import OpCode (OpCode (..))
 
 newtype StateInterpreter a = StateInterpreter { unStateInterpreter :: State IOState a }
@@ -189,11 +189,7 @@ readAddr = do
       mem = memory st
       curVal = readMem addr mem
   put st { address = addr + 1 }
-  if curVal < 32768
-  then return (Mem $ unVal curVal)
-  else if curVal < 32776
-  then return (Reg (unVal curVal - 32768))
-  else error $ "Value out of bounds: " ++ show curVal
+  return (valToAddr curVal)
 
 writeVal :: HasCallStack => Interpreter m => Addr -> Val -> m ()
 writeVal addr val = modify (setAt addr val)
