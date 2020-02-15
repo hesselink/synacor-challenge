@@ -32,6 +32,7 @@ tests = testGroup "Tests" $
   , testProperty "ReadMemory" testReadMemory
   , testProperty "WriteMemory" testWriteMemory
   , testProperty "Call" testCall
+  , testProperty "Return" testReturn
   ]
 
 testSet :: Val -> Reg -> Addr -> Property
@@ -188,6 +189,15 @@ testCall x y (R target) =
                       ] $ emptyState
   in runAndCheck [equalityCheck target y, stackTopCheck 2] st
 
+testReturn :: Val -> Val -> Reg -> Property
+testReturn x y (R target) =
+  let st = addProgram [ Ret
+                      , Set target (Mem (unVal x))
+                      , Halt
+                      , Set target (Mem (unVal y))
+                      ] . pushStack 5 $ emptyState
+  in runAndCheckEquals target y st
+
 addProgram :: Program -> IState -> IState
 addProgram p st = st { memory = insertProgram p (memory st) }
 
@@ -257,6 +267,7 @@ serializeOp op = case op of
   RMem a b -> 15 : map serializeAddr [a, b]
   WMem a b -> 16 : map serializeAddr [a, b]
   Call a -> [17, serializeAddr a]
+  Ret -> [18]
   _ -> error "Not implemented"
 
 serializeAddr :: Addr -> Word16

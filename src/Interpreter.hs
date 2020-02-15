@@ -6,6 +6,7 @@ module Interpreter where
 import Control.Monad.State.Strict (MonadState (), State, get, gets, put, modify, execState)
 import Control.Monad (when)
 import Data.Word (Word16)
+import Data.Maybe (fromMaybe)
 import Data.Char (chr)
 import Data.DList (DList, snoc)
 import Data.Bits ((.&.), (.|.), clearBit, complement)
@@ -13,7 +14,7 @@ import GHC.Stack (HasCallStack)
 import qualified Control.Monad.State as State
 import qualified Data.DList as DList
 
-import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack, readMem)
+import State (IState (address, memory, registers, stack), Val (Val, unVal), Addr (Mem, Reg), getReg, setAt, pushStack, popStack, readMem, halt)
 import OpCode (OpCode (..))
 
 newtype StateInterpreter a = StateInterpreter { unStateInterpreter :: State IOState a }
@@ -53,14 +54,14 @@ runStateInterpreter st inp = f $ execState (unStateInterpreter run) ioState
 
 run :: Interpreter m => m ()
 run = do
-  halt <- step
-  when (not halt) run
+  step
+  h <- gets halt
+  when (not h) run
 
-step :: Interpreter m => m Bool
+step :: Interpreter m => m ()
 step = do
   opCode <- readOpCode
   runOp opCode
-  return $ opCode == Halt
 
 readOpCode :: HasCallStack => Interpreter m => m OpCode
 readOpCode = do
@@ -72,7 +73,8 @@ parseOpCode = toEnum . fromIntegral
 
 runOp :: HasCallStack => Interpreter m => OpCode -> m ()
 runOp cd = case cd of
-  Halt -> return ()
+  Halt -> do
+    modify $ \st -> st { halt = True }
   Set -> do
     target <- readAddr
     v1 <- readVal
@@ -82,7 +84,7 @@ runOp cd = case cd of
     push v
   Pop -> do
     target <- readAddr
-    v <- pop
+    v <- fromMaybe (error "Empty stack") <$> pop
     writeVal target v
   Jmp -> do
     Val addr <- readVal
@@ -147,6 +149,12 @@ runOp cd = case cd of
    Val addr <- readVal
    next <- gets address
    modify $ \st -> st { address = addr, stack = Val next : stack st }
+  Ret -> do
+   v <- pop
+   modify $ \st ->
+     case v of
+       Just (Val addr) -> st { address = addr }
+       Nothing -> st { halt = True }
   Out -> do
     i <- unVal <$> readVal
     writeChar (chr . fromIntegral $ i)
@@ -180,5 +188,5 @@ writeVal addr val = modify (setAt addr val)
 push :: Interpreter m => Val -> m ()
 push v = modify (pushStack v)
 
-pop :: Interpreter m => m Val
+pop :: Interpreter m => m (Maybe Val)
 pop = State.state popStack

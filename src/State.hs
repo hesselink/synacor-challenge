@@ -19,6 +19,7 @@ data IState = IState
   , registers :: (Val, Val, Val, Val, Val, Val, Val, Val)
   , stack :: [Val]
   , address :: Word16
+  , halt :: Bool
   } deriving Show
 
 emptyState :: IState
@@ -27,6 +28,7 @@ emptyState = IState
   , registers = (0,0,0,0,0,0,0,0)
   , stack = mempty
   , address = 0
+  , halt = False
   }
 
 setAt :: HasCallStack => Addr -> Val -> IState -> IState
@@ -67,7 +69,8 @@ getReg n _ = error $ "Register out of bounds: " ++ show n
 pushStack :: Val -> IState -> IState
 pushStack v st = st { stack = v : stack st }
 
-popStack :: IState -> (Val, IState)
+popStack :: IState -> (Maybe Val, IState)
 popStack st =
-  let h:tl = stack st
-  in (h, st { stack = tl })
+  case stack st of
+    h:tl -> (Just h, st { stack = tl })
+    [] -> (Nothing, st)
