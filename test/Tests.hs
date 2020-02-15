@@ -30,6 +30,7 @@ tests = testGroup "Tests" $
   , testProperty "Or" testOr
   , testProperty "Not" testNot
   , testProperty "ReadMemory" testReadMemory
+  , testProperty "WriteMemory" testWriteMemory
   , testProperty "Call" testCall
   ]
 
@@ -170,6 +171,14 @@ testReadMemory x target (M source) = target /= source ==>
   let st = addProgram [RMem target source] . setAt source x $ emptyState
   in runAndCheckEquals target x st
 
+testWriteMemory :: Val -> Mem -> Addr -> Property
+testWriteMemory x (M target) source = target /= source ==>
+  let st = addProgram [WMem target source] . setAt source x $ emptyState
+      v = case source of
+        Mem l -> Val l
+        Reg _ -> x
+  in runAndCheckEquals target v st
+
 testCall :: Val -> Val -> Reg -> Property -- TODO test jump from register
 testCall x y (R target) =
   let st = addProgram [ Call (Mem 6)
@@ -242,12 +251,11 @@ serializeOp op = case op of
   Add a b c -> 9 : map serializeAddr [a, b, c]
   Mult a b c -> 10 : map serializeAddr [a, b, c]
   Mod a b c -> 11 : map serializeAddr [a, b, c]
-  -- TODO
   And a b c -> 12 : map serializeAddr [a, b, c]
   Or a b c -> 13 : map serializeAddr [a, b, c]
   Not a b -> 14 : map serializeAddr [a, b]
   RMem a b -> 15 : map serializeAddr [a, b]
-  -- TODO
+  WMem a b -> 16 : map serializeAddr [a, b]
   Call a -> [17, serializeAddr a]
   _ -> error "Not implemented"
 
@@ -274,7 +282,7 @@ data Op
   | Or Addr Addr Addr
   | Not Addr Addr
   | RMem Addr Addr
-  | Wmem Addr Addr
+  | WMem Addr Addr
   | Call Addr
   | Ret
   | Out Addr

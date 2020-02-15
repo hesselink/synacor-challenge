@@ -17,7 +17,7 @@ data OpCode
   | Or
   | Not
   | RMem
-  | Wmem
+  | WMem
   | Call
   | Ret
   | Out

@@ -139,6 +139,10 @@ runOp cd = case cd of
    (Val v) <- readVal
    mem <- gets memory
    writeVal target (readMem v mem)
+  WMem -> do
+   (Val target) <- readVal
+   v <- readVal
+   writeVal (Mem target) v
   Call -> do
    Val addr <- readVal
    next <- gets address
